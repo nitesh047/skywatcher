@@ -200,9 +200,70 @@ input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2
 
 /* Mobile responsive */
 @media (max-width: 700px) {
+  /* Layout: sidebar on top, map fills the rest */
+  #app { grid-template-rows: 52px 1fr; }
   #main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  #sidebar { max-height: 45vh; }
-  #map { min-height: 55vh; }
+
+  /* Header */
+  header { padding: 0 12px; }
+  .logo h1 { font-size: 14px; }
+  .logo-icon { width: 22px; height: 22px; }
+  .header-right { gap: 8px; }
+  #last-update-label { display: none; }
+
+  /* Sidebar: single scrollable panel, max 48% of viewport */
+  #sidebar {
+    max-height: 48vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    /* let sidebar be the only scroll container */
+    display: block;
+  }
+  /* planes-section must not create its own scroll area; let sidebar scroll */
+  .planes-section {
+    overflow-y: visible;
+    flex: none;
+  }
+  /* unstick the sticky planes header — there's no inner scroll to stick inside */
+  .planes-header { position: static; }
+
+  /* Tighten controls */
+  .sidebar-header { padding: 10px 14px 10px; }
+  .sidebar-header h2 { margin-bottom: 10px; }
+  .controls { gap: 8px; }
+  .control-group { gap: 4px; }
+
+  /* Hide location box on mobile to save space */
+  .location-box { display: none; }
+
+  /* Buttons: full-width, compact */
+  .btn { padding: 10px 12px; font-size: 13px; }
+  .btn-row { gap: 6px; }
+
+  /* Plane list */
+  .planes-header { padding: 8px 14px 6px; }
+  .plane-card { margin: 6px 10px; padding: 10px 12px; }
+  .callsign { font-size: 13px; }
+  .operator-name { max-width: 100%; }
+  .plane-meta { grid-template-columns: 1fr 1fr; gap: 3px 6px; }
+  .meta-value { font-size: 11px; }
+
+  /* Map: fills remaining space */
+  #map { min-height: 52vh; }
+
+  /* Toast: bottom of screen, full width */
+  #toast-container {
+    top: auto;
+    bottom: 16px;
+    right: 12px;
+    left: 12px;
+  }
+  .toast { max-width: 100%; }
+
+  /* Alert banner */
+  #alert-banner { font-size: 13px; padding: 11px 14px; }
 }
 </style>
 </head>
@@ -236,7 +297,7 @@ input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2
       <h1>Sky<span>Watcher</span></h1>
     </div>
     <div class="header-right">
-      <button id="btn-install" onclick="installApp()" style="display:none;padding:5px 12px;border-radius:7px;border:1px solid var(--accent);background:rgba(59,130,246,0.12);color:var(--accent2);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">⬇ Install App</button>
+      <button id="btn-install" onclick="installApp()" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--accent);background:rgba(59,130,246,0.12);color:var(--accent2);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;flex-shrink:0">⬇ Install</button>
       <span style="font-size:11px;color:var(--text2)" id="last-update-label">–</span>
       <div class="status-dot" id="status-dot"></div>
     </div>
@@ -511,10 +572,12 @@ function startTracking() {
 function stopTracking() {
   isTracking = false;
   clearInterval(trackInterval);
+  lastAlertedSet = new Set(); // reset so planes re-alert next session
   document.getElementById('btn-start').textContent = '▶ Start';
   document.getElementById('btn-start').className = 'btn primary';
   document.getElementById('status-dot').className = 'status-dot';
   document.getElementById('last-update-label').textContent = 'Stopped';
+  document.getElementById('alert-banner').style.display = 'none';
   if (selectedPathLayer) { map.removeLayer(selectedPathLayer); selectedPathLayer = null; }
   selectedIcao = null;
 }
@@ -794,26 +857,35 @@ function focusPlane(icao, lat, lng) {
 
 // ─── Alerts ───────────────────────────────────────────────────────────────────
 function checkAlerts(planes) {
-  const newAlerts = planes.filter(p => p.dist < 3 && p.altFt < 8000);
-  const currentSet = new Set(newAlerts.map(p => p.icao));
+  // Alert on ANY new plane entering the search radius (wasn't seen last cycle)
+  const currentSet = new Set(planes.map(p => p.icao));
 
-  for (const p of newAlerts) {
+  for (const p of planes) {
     if (!lastAlertedSet.has(p.icao)) {
-      const msg = `${p.callsign} is ${p.dist.toFixed(1)} km away at ${p.altFt.toLocaleString()} ft`;
-      showToast('✈', '⚠ Aircraft Close By!', msg, true);
-      sendBrowserNotification('✈ ' + p.callsign + ' overhead!', msg);
-      playBeep();
+      const distStr = p.dist < 1
+        ? (p.dist * 1000).toFixed(0) + ' m'
+        : p.dist.toFixed(1) + ' km';
+      const altStr = p.altFt > 0 ? ` · ${p.altFt.toLocaleString()} ft` : '';
+      const label = p.callsign || p.icao;
+      const isClose = p.dist < 5;
+      const icon = isClose ? '🚨' : '✈';
+      const title = isClose ? '⚠ Aircraft Nearby!' : 'Aircraft in Range';
+      const msg = `${label} is ${distStr} away${altStr}`;
+      showToast(icon, title, msg, isClose);
+      sendBrowserNotification(`${icon} ${label}`, msg);
+      if (isClose) playBeep();
     }
   }
 
-  // Show / hide the persistent alert banner
+  // Show / hide the persistent alert banner for planes within 5 km
+  const closeBy = planes.filter(p => p.dist < 5);
   const banner = document.getElementById('alert-banner');
-  if (newAlerts.length > 0) {
-    const closest = newAlerts[0]; // already sorted by distance
+  if (closeBy.length > 0) {
+    const closest = closeBy[0]; // already sorted by distance
     const distStr = closest.dist < 1
       ? (closest.dist * 1000).toFixed(0) + ' m'
       : closest.dist.toFixed(1) + ' km';
-    banner.textContent = `⚠ ALERT: ${closest.callsign} — ${distStr} away · ${closest.altFt.toLocaleString()} ft`;
+    banner.textContent = `⚠ ALERT: ${closest.callsign || closest.icao} — ${distStr} away · ${closest.altFt.toLocaleString()} ft`;
     banner.style.display = 'block';
   } else {
     banner.style.display = 'none';
