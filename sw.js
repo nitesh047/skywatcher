@@ -98,13 +98,15 @@ async function bgCheckPlanes() {
 
   const p = newPlanes[0];
   const callsign = (p.flight || p.hex || '').trim();
+  const typeCode = p.t || (p.desc ? p.desc.split(' ').pop() : null);
+  const modelTag = typeCode ? ` · ${typeCode}` : '';
   const dist = swHaversine(state.lat, state.lng, p.lat, p.lon);
   const distStr = dist < 1 ? (dist * 1000).toFixed(0) + ' m' : dist.toFixed(1) + ' km';
   const body = newPlanes.length > 1
     ? `${newPlanes.length} new aircraft entered your area`
-    : `${callsign} is ${distStr} away`;
+    : `${callsign}${modelTag} — ${distStr} away`;
 
-  await self.registration.showNotification(`✈ ${callsign} nearby`, {
+  await self.registration.showNotification(`✈ ${callsign}${modelTag}`, {
     body,
     icon: '/skywatcher/icons/icon-192.png',
     badge: '/skywatcher/icons/icon-96.png',

@@ -932,12 +932,13 @@ function checkAlerts(planes) {
         : p.dist.toFixed(1) + ' km';
       const altStr = p.altFt > 0 ? ` · ${p.altFt.toLocaleString()} ft` : '';
       const label = p.callsign || p.icao;
+      const modelTag = p.typeCode ? ` · ${p.typeCode}` : '';
       const isClose = p.dist < 5;
       const icon = isClose ? '🚨' : '✈';
       const title = isClose ? '⚠ Aircraft Nearby!' : 'Aircraft in Range';
-      const msg = `${label} is ${distStr} away${altStr}`;
+      const msg = `${label}${modelTag} — ${distStr} away${altStr}`;
       showToast(icon, title, msg, isClose);
-      sendBrowserNotification(`${icon} ${label}`, msg);
+      sendBrowserNotification(`${icon} ${label}${modelTag}`, msg);
       if (isClose) playBeep();
     }
   }
