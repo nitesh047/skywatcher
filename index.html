@@ -533,6 +533,7 @@ function onLocationSuccess(pos) {
   document.getElementById('loc-lat').textContent = userLat.toFixed(5);
   document.getElementById('loc-lng').textContent = userLng.toFixed(5);
   document.getElementById('loc-acc').textContent = acc + ' m';
+  saveSwState();
   showApp(userLat, userLng);
 }
 
@@ -542,6 +543,7 @@ function onLocationError(err) {
   document.getElementById('loc-lat').textContent = userLat.toFixed(5);
   document.getElementById('loc-lng').textContent = userLng.toFixed(5);
   document.getElementById('loc-acc').textContent = 'GPS failed – using HYD';
+  saveSwState();
   showApp(userLat, userLng);
   showToast('⚠️', 'Location fallback', 'GPS unavailable. Using Hyderabad as default.', false);
 }
@@ -955,6 +957,7 @@ function checkAlerts(planes) {
   }
 
   lastAlertedSet = currentSet;
+  saveSwState(); // keep SW state fresh with latest location + alerted set
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -966,14 +969,49 @@ async function requestNotifPermission() {
   const perm = await Notification.requestPermission();
   notifGranted = perm === 'granted';
   if (notifGranted) {
-    showToast('✅', 'Alerts enabled', "You'll be notified when aircraft are nearby.", false);
     document.getElementById('btn-notif').textContent = '🔔 Alerts On';
     document.getElementById('btn-notif').style.color = '#22c55e';
-    // Send a test notification so the user confirms it works
     sendBrowserNotification('SkyWatcher', 'Proximity alerts are now active.');
+    // Try to register background sync (Android Chrome only)
+    const bgOk = await registerBgSync();
+    const bgMsg = bgOk
+      ? "You'll be notified even when the app is closed."
+      : "You'll be notified while the app is open. Background alerts require Android Chrome.";
+    showToast('✅', 'Alerts enabled', bgMsg, false);
+    saveSwState();
   } else {
     showToast('⚠️', 'Permission denied', 'Open browser/phone settings and allow notifications for this site.', false);
   }
+}
+
+async function registerBgSync() {
+  if (!('serviceWorker' in navigator)) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (!('periodicSync' in reg)) return false;
+    const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+    if (status.state !== 'granted') return false;
+    await reg.periodicSync.register('bg-plane-check', { minInterval: 60 * 1000 });
+    return true;
+  } catch { return false; }
+}
+
+// Save location + settings to cache so SW can read it for background checks
+async function saveSwState() {
+  if (!userLat || !userLng) return;
+  try {
+    const state = {
+      lat: userLat,
+      lng: userLng,
+      radiusKm: parseInt(document.getElementById('radius-slider').value) || 10,
+      lastAlerted: [...lastAlertedSet],
+      ts: Date.now()
+    };
+    const cache = await caches.open('skywatcher-state');
+    await cache.put('/sw-state', new Response(JSON.stringify(state), {
+      headers: { 'Content-Type': 'application/json' }
+    }));
+  } catch {}
 }
 
 function sendBrowserNotification(title, body) {
