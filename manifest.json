@@ -3,6 +3,7 @@
   "short_name": "SkyWatcher",
   "description": "Real-time aircraft detection and alerts using OpenSky Network",
   "start_url": "/skywatcher-pwa/",
+  "scope": "/skywatcher-pwa/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0a0e1a",
