@@ -33,7 +33,7 @@
     {
       "name": "Start Tracking",
       "description": "Open SkyWatcher and begin scanning",
-      "url": "/skywatcher-pwa/?action=start",
+      "url": "/skywatcher/?action=start",
       "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96" }]
     }
   ]

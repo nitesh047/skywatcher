@@ -444,8 +444,8 @@ window.addEventListener('appinstalled', () => {
 function installApp() {
   if (_isIOS) {
     // Populate the correct URL for this app
-    const correctUrl = location.origin + '/skywatcher-pwa/';
-    const onCorrectPage = location.pathname.startsWith('/skywatcher-pwa');
+    const correctUrl = location.origin + '/skywatcher/';
+    const onCorrectPage = location.pathname.startsWith('/skywatcher');
     document.getElementById('ios-url-label').textContent = correctUrl;
     const warning = document.getElementById('ios-url-warning');
     const correctUrlEl = document.getElementById('ios-correct-url');
@@ -468,7 +468,7 @@ function installApp() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js', { scope: '/skywatcher-pwa/' })
+    navigator.serviceWorker.register('sw.js', { scope: '/skywatcher/' })
       .then(reg => {
         // Restore notification button state if permission was already granted
         if (Notification.permission === 'granted') {
