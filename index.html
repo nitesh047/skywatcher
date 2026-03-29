@@ -6,6 +6,10 @@
 <meta name="theme-color" content="#0a0e1a">
 <meta name="description" content="SkyWatcher – Real-time aircraft proximity alerts using OpenSky Network">
 <link rel="manifest" href="manifest.json">
+<!-- iOS PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SkyWatcher">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>SkyWatcher</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -363,6 +367,30 @@ input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2
 <div id="toast-container"></div>
 <div id="alert-banner"></div>
 
+<!-- iOS install guide -->
+<div id="ios-install-modal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center">
+  <div style="background:#0f1627;border:1px solid rgba(255,255,255,0.1);border-radius:20px 20px 0 0;padding:28px 24px 40px;max-width:480px;width:100%;position:relative">
+    <button onclick="document.getElementById('ios-install-modal').style.display='none'" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;line-height:1">✕</button>
+    <div style="font-size:22px;margin-bottom:10px">📲 Install SkyWatcher</div>
+    <p style="font-size:14px;color:#94a3b8;margin-bottom:20px;line-height:1.6">Install this app on your iPhone for the best experience with offline support and home screen access.</p>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:36px;height:36px;background:rgba(59,130,246,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">1</div>
+        <span style="font-size:14px;color:#e2e8f0">Tap the <strong style="color:#60a5fa">Share</strong> button <span style="font-size:16px">&#x2BAD;</span> at the bottom of Safari</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:36px;height:36px;background:rgba(59,130,246,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">2</div>
+        <span style="font-size:14px;color:#e2e8f0">Scroll down and tap <strong style="color:#60a5fa">Add to Home Screen</strong></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:36px;height:36px;background:rgba(59,130,246,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">3</div>
+        <span style="font-size:14px;color:#e2e8f0">Tap <strong style="color:#60a5fa">Add</strong> in the top-right corner</span>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#475569;margin-top:20px">⚠ Must be opened in Safari — Chrome on iPhone does not support PWA installation.</p>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -385,6 +413,15 @@ const REFRESH_SEC = 15;
 
 // ─── PWA Install ─────────────────────────────────────────────────────────────
 let _installPrompt = null;
+const _isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+const _isInStandalone = window.navigator.standalone === true
+  || window.matchMedia('(display-mode: standalone)').matches;
+
+// Show install button on iOS (if not already installed)
+if (_isIOS && !_isInStandalone) {
+  document.getElementById('btn-install').style.display = 'block';
+}
+
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _installPrompt = e;
@@ -395,17 +432,23 @@ window.addEventListener('appinstalled', () => {
   _installPrompt = null;
   showToast('✅', 'App installed!', 'SkyWatcher has been added to your home screen.', false);
 });
-async function installApp() {
+function installApp() {
+  if (_isIOS) {
+    // iOS: show step-by-step guide modal
+    document.getElementById('ios-install-modal').style.display = 'flex';
+    return;
+  }
   if (!_installPrompt) return;
   _installPrompt.prompt();
-  const { outcome } = await _installPrompt.userChoice;
-  if (outcome === 'accepted') _installPrompt = null;
+  _installPrompt.userChoice.then(({ outcome }) => {
+    if (outcome === 'accepted') _installPrompt = null;
+  });
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js')
+    navigator.serviceWorker.register('sw.js', { scope: '/skywatcher-pwa/' })
       .then(reg => {
         // Restore notification button state if permission was already granted
         if (Notification.permission === 'granted') {

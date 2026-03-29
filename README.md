@@ -77,7 +77,7 @@ Then open `http://localhost:8080`.
    git init
    git add .
    git commit -m "Initial commit"
-   git remote add origin https://github.com/<your-username>/skywatcher-pwa.git
+   git remote add origin https://github.com/nitesh047/skywatcher
    git push -u origin main
    ```
 3. Go to **Settings → Pages → Source** and select `main` branch, root (`/`)

@@ -1,9 +1,9 @@
-// SkyWatcher Service Worker v1.7
-const CACHE_NAME = 'skywatcher-v8';
+// SkyWatcher Service Worker v1.8
+const CACHE_NAME = 'skywatcher-v9';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
+  '/skywatcher-pwa/',
+  '/skywatcher-pwa/index.html',
+  '/skywatcher-pwa/manifest.json',
 ];
 
 // Install
